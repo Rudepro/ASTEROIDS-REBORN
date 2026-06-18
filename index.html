@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Asteroids Reborn</title>
+    <meta name="description" content="Asteroids Reborn - Juego espacial arcade de acción con múltiples modos de juego.">
+    <link rel="icon" type="image/png" href="public/images/logo.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Exo+2:wght@300;400;600&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+    <div id="game-container">
+        <!-- Canvas principal -->
+        <canvas id="game-canvas"></canvas>
+
+        <!-- UI Overlay -->
+        <div id="ui-layer">
+
+            <!-- ===================== MENÚ PRINCIPAL ===================== -->
+            <div id="main-menu" class="screen active">
+                <div class="menu-bg-overlay"></div>
+                <img src="public/images/logo.png" alt="Asteroids Reborn Logo" id="logo"
+                    onerror="this.style.display='none'">
+                <h1 class="title-fallback">ASTEROIDS<br><span>REBORN</span></h1>
+                <div id="menu-high-score" class="high-score-display" style="margin-bottom: 20px;">Récord: 0</div>
+                <div class="menu-buttons">
+                    <button id="btn-start" class="btn primary" aria-label="Iniciar campaña">
+                        <span class="btn-icon">🚀</span> Iniciar Campaña
+                    </button>
+                    <button id="btn-select-level" class="btn" aria-label="Seleccionar nivel" style="display:none;">
+                        <span class="btn-icon">📋</span> Seleccionar Nivel
+                    </button>
+                    <button id="btn-survival" class="btn danger" aria-label="Modo supervivencia">
+                        <span class="btn-icon">☠</span> Supervivencia
+                    </button>
+                    <button id="btn-upgrades" class="btn" aria-label="Mejoras permanentes">
+                        <span class="btn-icon">⬆</span> Mejoras
+                    </button>
+                    <button id="btn-settings" class="btn" aria-label="Configuración">
+                        <span class="btn-icon">⚙</span> Configuración
+                    </button>
+                </div>
+                <div class="version-tag">REBORN · NEON EDITION</div>
+            </div>
+
+            <!-- ===================== CONFIGURACIÓN ===================== -->
+            <div id="settings-screen" class="screen hidden">
+                <h2>CONFIGURACIÓN</h2>
+                <div class="menu-buttons">
+                    <button id="btn-toggle-difficulty" class="btn" aria-label="Cambiar dificultad">
+                        <span class="btn-icon">⚡</span> Dificultad: NORMAL
+                    </button>
+                    <button id="btn-toggle-visual" class="btn" aria-label="Cambiar estilo visual">
+                        <span class="btn-icon">🎨</span> Estilo: NEON
+                    </button>
+                    <button id="btn-settings-back" class="btn primary" aria-label="Volver al menú">
+                        <span class="btn-icon">←</span> Volver
+                    </button>
+                </div>
+                <div class="controls-hint">
+                    <h3>CONTROLES</h3>
+                    <div class="controls-grid">
+                        <span class="key">W / ↑</span><span>Acelerar</span>
+                        <span class="key">A / ←</span><span>Rotar Izq.</span>
+                        <span class="key">D / →</span><span>Rotar Der.</span>
+                        <span class="key">S / ↓</span><span>Frenar</span>
+                        <span class="key">SPACE</span><span>Disparar</span>
+                        <span class="key">P / ESC</span><span>Pausa</span>
+                    </div>
+                    <p class="hint-note">Recoge los <strong>power-ups hexagonales</strong> para cambiar de arma.</p>
+                </div>
+            </div>
+
+            <!-- ===================== MEJORAS ===================== -->
+            <div id="upgrades-screen" class="screen hidden">
+                <h2>MEJORAS PERMANENTES</h2>
+                <p class="crystals-display">💎 Cristales: <span id="meta-crystals">0</span></p>
+                <div class="cards-container">
+                    <div class="upgrade-card" id="upg-health">
+                        <div class="upgrade-icon">❤</div>
+                        <h3>Vida Máxima</h3>
+                        <p>Nivel: <span id="lvl-health">0</span></p>
+                        <p class="cost">Costo: <span id="cost-health">10</span> 💎</p>
+                    </div>
+                    <div class="upgrade-card" id="upg-speed">
+                        <div class="upgrade-icon">⚡</div>
+                        <h3>Velocidad</h3>
+                        <p>Nivel: <span id="lvl-speed">0</span></p>
+                        <p class="cost">Costo: <span id="cost-speed">15</span> 💎</p>
+                    </div>
+                    <div class="upgrade-card" id="upg-shield">
+                        <div class="upgrade-icon">🛡</div>
+                        <h3>Escudo</h3>
+                        <p>Nivel: <span id="lvl-shield">0</span></p>
+                        <p class="cost">Costo: <span id="cost-shield">20</span> 💎</p>
+                    </div>
+                </div>
+                <div class="menu-buttons" style="margin-top:2rem;">
+                    <button id="btn-upgrades-back" class="btn primary">
+                        <span class="btn-icon">←</span> Volver
+                    </button>
+                </div>
+            </div>
+
+            <!-- ===================== HUD DE JUEGO ===================== -->
+            <div id="hud" class="screen hidden">
+
+                <!-- Barra superior: vida, escudo, puntaje -->
+                <div class="top-bar">
+                    <!-- Stats del jugador -->
+                    <div class="player-stats">
+                        <div class="bar-group">
+                            <div class="bar-label">
+                                <span class="bar-icon">❤</span>
+                                <span class="bar-text">VIDA</span>
+                            </div>
+                            <div class="bar-track">
+                                <div id="health-bar" class="bar health"></div>
+                                <div class="bar-shine"></div>
+                            </div>
+                        </div>
+                        <div class="bar-group">
+                            <div class="bar-label">
+                                <span class="bar-icon shield-icon">🛡</span>
+                                <span class="bar-text">ESCUDO</span>
+                            </div>
+                            <div class="bar-track">
+                                <div id="shield-bar" class="bar shield"></div>
+                                <div class="bar-shine"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Puntaje central -->
+                    <div class="score-panel">
+                        <div class="score-label">PUNTAJE</div>
+                        <div id="score" class="score-value">0000000</div>
+                        <div id="combo-multiplier" class="combo-multiplier level-1"></div>
+                    </div>
+
+                    <!-- Nivel / modo -->
+                    <div class="level-panel">
+                        <div class="level-label">MODO</div>
+                        <div id="level-text" class="level-value">NIVEL 1</div>
+                        <div id="survival-timer" class="survival-timer hidden">0:00</div>
+                    </div>
+                </div>
+
+                <!-- Indicador de arma actual (esquina inferior izquierda) -->
+                <div class="weapon-panel">
+                    <div class="weapon-label">ARMA ACTIVA</div>
+                    <div class="weapon-display">
+                        <span id="weapon-icon" class="weapon-icon-big">⚡</span>
+                        <div class="weapon-info">
+                            <span id="weapon-name" class="weapon-name-text">Láser</span>
+                            <span id="weapon-ammo" class="weapon-ammo">∞</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Notificación de power-up (centro superior) -->
+                <div id="powerup-notif" class="powerup-notif hidden">⬆ Láser</div>
+                
+                <!-- Mini-mapa -->
+                <canvas id="minimap-canvas" width="150" height="150"></canvas>
+            </div>
+
+            <!-- ===================== PAUSA ===================== -->
+            <div id="pause-screen" class="screen hidden">
+                <div class="pause-container">
+                    <h2>⏸ PAUSA</h2>
+                    <div class="menu-buttons">
+                        <button id="btn-resume" class="btn primary" aria-label="Continuar">
+                            <span class="btn-icon">▶</span> Continuar
+                        </button>
+                        <button id="btn-quit" class="btn" aria-label="Salir al menú">
+                            <span class="btn-icon">🏠</span> Menú Principal
+                        </button>
+                    </div>
+                    <div class="pause-hint">Presiona P o ESC para reanudar</div>
+                </div>
+            </div>
+
+            <!-- ===================== GAME OVER ===================== -->
+            <div id="game-over-screen" class="screen hidden">
+                <div class="game-over-container">
+                    <div class="game-over-title">FIN DE LA PARTIDA</div>
+                    <div class="score-result">
+                        <div class="score-result-label">PUNTAJE FINAL</div>
+                        <div class="score-result-value" id="final-score">0</div>
+                    </div>
+                    <div class="game-over-stats">
+                        <p>Asteroides: <span id="stat-asteroids" class="stat-val">0</span></p>
+                        <p>Tiempo: <span id="stat-time" class="stat-val">0:00</span></p>
+                        <p>Arma fav: <span id="stat-weapon" class="stat-val">Ninguna</span></p>
+                    </div>
+                    <div id="high-score-display" class="high-score-display">Récord: 0</div>
+                    <div class="menu-buttons">
+                        <button id="btn-restart" class="btn primary">
+                            <span class="btn-icon">🔄</span> Reintentar
+                        </button>
+                        <button id="btn-menu" class="btn">
+                            <span class="btn-icon">🏠</span> Menú Principal
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===================== NIVEL COMPLETADO ===================== -->
+            <div id="level-complete-screen" class="screen hidden">
+                <div class="level-complete-container">
+                    <div class="level-complete-title">✓ NIVEL <span id="completed-level-num">1</span> COMPLETADO</div>
+                    <div class="menu-buttons">
+                        <button id="btn-next-level" class="btn primary">
+                            <span class="btn-icon">→</span> Siguiente Nivel
+                        </button>
+                        <button id="btn-level-complete-menu" class="btn">
+                            <span class="btn-icon">🏠</span> Menú Principal
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===================== SELECCIONAR NIVEL ===================== -->
+            <div id="level-select-screen" class="screen hidden">
+                <h2>SELECCIONAR NIVEL</h2>
+                <div id="level-grid" class="level-grid"></div>
+                <div class="menu-buttons" style="margin-top:2rem;">
+                    <button id="btn-select-level-back" class="btn primary">
+                        <span class="btn-icon">←</span> Volver
+                    </button>
+                </div>
+            </div>
+
+            <!-- ===================== LEVEL UP (ROGUELITE) ===================== -->
+            <div id="level-up-screen" class="screen hidden">
+                <h2>⬆ ¡NUEVO NIVEL!</h2>
+                <p style="margin-bottom:1rem; color:#aaa;">Elige una mejora:</p>
+                <div id="upgrade-cards" class="cards-container"></div>
+            </div>
+
+        </div><!-- /ui-layer -->
+    </div><!-- /game-container -->
+
+    <!-- Scripts (orden de dependencias) -->
+    <script src="js/config.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/audio.js"></script>
+    <script src="js/saveSystem.js"></script>
+    <script src="js/entities.js"></script>
+    <script src="js/particles.js"></script>
+    <script src="js/weapons.js"></script>
+    <script src="js/asteroids.js"></script>
+    <script src="js/enemies.js"></script>
+    <script src="js/bosses.js"></script>
+    <script src="js/powerups.js"></script>
+    <script src="js/player.js"></script>
+    <script src="js/upgrades.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/input.js"></script>
+    <script src="js/renderer.js"></script>
+    <script src="js/game.js"></script>
+    <script src="js/main.js"></script>
+</body>
+
+</html>
