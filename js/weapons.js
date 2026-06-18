@@ -69,8 +69,8 @@ const WEAPON_TYPES = {
         color: '#ff8800',
         icon: 'MISSILE_ICON',
         shootDelay: 60,
-        projectileLife: 360,
-        speed: 12,
+        projectileLife: 480,
+        speed: 13,
         spread: 0,
         count: 1,
         damage: 999,    // destruye completamente el asteroide pequeño
@@ -78,7 +78,7 @@ const WEAPON_TYPES = {
         width: 5,
         ammo: 5,        // 5 misiles dirigidos
         homing: true,   // bandera de seguimiento
-        homingStrength: 0.08  // fuerza de giro por frame
+        homingStrength: 0.18  // fuerza de giro por frame (más alta = sin orbiting)
     }
 };
 
@@ -97,7 +97,7 @@ class Projectile extends Entity {
         this.vy = Math.sin(angle) * speed;
         this.angle = angle;
         this.damage = this.weaponDef.damage;
-        this.target = null;     // asteroide objetivo (homing)
+        this.target = null;     // asteroide objetivo (homing, asignado manualmente)
         this._trailPoints = []; // cola visual del misil
     }
 
@@ -127,32 +127,40 @@ class Projectile extends Entity {
     }
 
     _updateHoming(dt, asteroids) {
-        // Buscar nuevo objetivo si el actual ya no está activo
+        // El objetivo es asignado manualmente desde Game.missileTarget
+        // Si el objetivo está inactivo, el misil continúa en línea recta
         if (!this.target || !this.target.active) {
-            this.target = this._findNearestAsteroid(asteroids);
+            this.target = null;
+            return;
         }
-        if (!this.target) return;
 
-        // Calcular ángulo hacia el objetivo
+        // Steering: apuntar directamente al objetivo con alta fuerza (evita orbiting)
         const dx = this.target.x - this.x;
         const dy = this.target.y - this.y;
-        const desiredAngle = Math.atan2(dy, dx);
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < 1) return;
 
-        // Interpolar la velocidad suavemente (steering)
-        const str = this.weaponDef.homingStrength;
         const speed = this.weaponDef.speed;
-        const curAngle = Math.atan2(this.vy, this.vx);
+        const str = this.weaponDef.homingStrength;
 
-        // Diferencia de ángulos con wrap
-        let diff = desiredAngle - curAngle;
-        while (diff > Math.PI)  diff -= Math.PI * 2;
-        while (diff < -Math.PI) diff += Math.PI * 2;
+        // Vector deseado normalizado
+        const desiredVx = (dx / dist) * speed;
+        const desiredVy = (dy / dist) * speed;
 
-        const newAngle = curAngle + diff * str * dt;
-        this.vx = Math.cos(newAngle) * speed;
-        this.vy = Math.sin(newAngle) * speed;
+        // Steering suave: mezcla velocidad actual con la deseada
+        const turnRate = str * dt;
+        this.vx += (desiredVx - this.vx) * turnRate;
+        this.vy += (desiredVy - this.vy) * turnRate;
+
+        // Re-normalizar al speed del misil
+        const curSpeed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+        if (curSpeed > 0) {
+            this.vx = (this.vx / curSpeed) * speed;
+            this.vy = (this.vy / curSpeed) * speed;
+        }
     }
 
+    // Ya no se usa homing automático, el target se asigna desde Game.missileTarget
     _findNearestAsteroid(asteroids) {
         if (!asteroids) return null;
         let best = null;

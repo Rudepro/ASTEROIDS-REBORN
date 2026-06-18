@@ -44,6 +44,11 @@ class Game {
         this.powerUpNotification = null;
         this.powerUpNotificationTimer = 0;
 
+        // Missile targeting manual
+        this.missileTarget = null;       // asteroide seleccionado manualmente
+        this._missileTargetIndex = -1;   // índice en this.asteroids
+        this._gKeyWasDown = false;       // para detectar flanco de G
+
         // Cache de UI para evitar actualizaciones DOM innecesarias
         this._lastScore = -1;
         this._lastHealth = -1;
@@ -221,6 +226,13 @@ class Game {
         const speed = p.weaponDef.speed;
         p.vx = Math.cos(angle) * speed;
         p.vy = Math.sin(angle) * speed;
+        p._trailPoints = [];
+        // Asignar target si es misil y hay un objetivo seleccionado
+        if (p.weaponDef.homing && type === 'player') {
+            p.target = this.missileTarget || null;
+        } else {
+            p.target = null;
+        }
         this.projectiles.push(p);
     }
 
@@ -292,6 +304,19 @@ class Game {
             this.input.clearAll(); // Evitar teclas "pegadas" al reanudar
             UI.showScreen('pause-screen');
             return;
+        }
+
+        // Tecla G: ciclar objetivo del misil (solo cuando el arma activa es MISSILE)
+        const gDown = this.input.isDown('KeyG');
+        if (gDown && !this._gKeyWasDown && this.player && this.player.currentWeaponKey === 'MISSILE') {
+            this._cycleMissileTarget();
+        }
+        this._gKeyWasDown = gDown;
+
+        // Si el objetivo actual ya no es activo, limpiar referencia
+        if (this.missileTarget && !this.missileTarget.active) {
+            this.missileTarget = null;
+            this._missileTargetIndex = -1;
         }
 
         this.stats.timePlayed += dt;
@@ -400,6 +425,36 @@ class Game {
             this._lastWeaponKey = wk;
             this._lastAmmo = ammo;
         }
+
+        // Limpiar missileTarget si el arma ya no es MISSILE
+        if (wk !== 'MISSILE') {
+            this.missileTarget = null;
+            this._missileTargetIndex = -1;
+        }
+    }
+
+    // Cicla el objetivo del misil al siguiente asteroide activo
+    _cycleMissileTarget() {
+        const asteroids = this.asteroids.filter(a => a.active);
+        if (asteroids.length === 0) {
+            this.missileTarget = null;
+            this._missileTargetIndex = -1;
+            return;
+        }
+
+        // Buscar el índice actual del target en el array filtrado
+        let currentIdx = -1;
+        if (this.missileTarget) {
+            currentIdx = asteroids.indexOf(this.missileTarget);
+        }
+
+        // Avanzar al siguiente
+        const nextIdx = (currentIdx + 1) % asteroids.length;
+        this.missileTarget = asteroids[nextIdx];
+        this._missileTargetIndex = nextIdx;
+
+        // Mostrar notificación breve
+        this.showPowerUpNotification('🎯 Objetivo bloqueado', '#ff8800');
     }
 
     // Filtrado eficiente in-place sin crear arrays nuevos
@@ -622,6 +677,11 @@ class Game {
                 this.player.draw(ctx);
             }
 
+            // Dibujar cuadro de targeting del misil
+            if (this.missileTarget && this.missileTarget.active && this.player && this.player.currentWeaponKey === 'MISSILE') {
+                this._drawMissileTarget(ctx, this.missileTarget);
+            }
+
             if (this.damageFlashTimer > 0) {
                 ctx.fillStyle = `rgba(255, 0, 0, ${this.damageFlashTimer / 10})`;
                 ctx.fillRect(0, 0, W, H);
@@ -707,10 +767,84 @@ class Game {
         ctx.restore();
     }
 
+    // Dibuja un cuadro de targeting animado alrededor del asteroide objetivo del misil
+    _drawMissileTarget(ctx, asteroid) {
+        const t = Date.now() / 600; // animación de pulso
+        const pulse = 0.6 + Math.abs(Math.sin(t)) * 0.4;
+        const r = asteroid.radius + 10 + Math.sin(t * 2) * 3;
+        const cornerSize = 10;
+
+        ctx.save();
+        ctx.globalAlpha = pulse;
+        ctx.strokeStyle = '#ff8800';
+        ctx.lineWidth = 2;
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = '#ff8800';
+
+        const x = asteroid.x | 0;
+        const y = asteroid.y | 0;
+
+        // Cuatro esquinas del cuadro
+        // Superior-izquierda
+        ctx.beginPath();
+        ctx.moveTo(x - r, y - r + cornerSize);
+        ctx.lineTo(x - r, y - r);
+        ctx.lineTo(x - r + cornerSize, y - r);
+        ctx.stroke();
+        // Superior-derecha
+        ctx.beginPath();
+        ctx.moveTo(x + r - cornerSize, y - r);
+        ctx.lineTo(x + r, y - r);
+        ctx.lineTo(x + r, y - r + cornerSize);
+        ctx.stroke();
+        // Inferior-derecha
+        ctx.beginPath();
+        ctx.moveTo(x + r, y + r - cornerSize);
+        ctx.lineTo(x + r, y + r);
+        ctx.lineTo(x + r - cornerSize, y + r);
+        ctx.stroke();
+        // Inferior-izquierda
+        ctx.beginPath();
+        ctx.moveTo(x - r + cornerSize, y + r);
+        ctx.lineTo(x - r, y + r);
+        ctx.lineTo(x - r, y + r - cornerSize);
+        ctx.stroke();
+
+        // Línea desde el jugador al objetivo
+        if (this.player) {
+            ctx.globalAlpha = pulse * 0.3;
+            ctx.setLineDash([6, 6]);
+            ctx.beginPath();
+            ctx.moveTo(this.player.x | 0, this.player.y | 0);
+            ctx.lineTo(x, y);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+
+        // Etiqueta "TARGET"
+        ctx.globalAlpha = pulse;
+        ctx.fillStyle = '#ff8800';
+        ctx.font = 'bold 10px Orbitron, monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('TARGET', x, y - r - 6);
+
+        ctx.shadowBlur = 0;
+        ctx.restore();
+    }
+
     loop(currentTime) {
         const rawDt = (currentTime - this.lastTime) / (1000 / 60);
         const dt = Math.min(rawDt, 3);
         this.lastTime = currentTime;
+
+        // Reanudar desde pausa con P o ESC (debe detectarse aquí porque update() retorna early en PAUSED)
+        if (this.state === 'PAUSED') {
+            if (this.input.isDown('KeyP') || this.input.isDown('Escape')) {
+                this.state = 'PLAYING';
+                this.input.clearAll();
+                UI.showScreen('hud');
+            }
+        }
 
         this.update(dt);
         this.draw();
