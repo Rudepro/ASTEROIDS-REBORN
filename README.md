@@ -10,16 +10,24 @@
 
 **Asteroids Reborn** es un juego arcade 2D de alto rendimiento que moderniza la fórmula clásica del juego original de Atari (1979) con:
 
-- Sistema de **múltiples armas** intercambiables en tiempo real
+- Sistema de **múltiples armas** intercambiables en tiempo real con munición limitada
 - Modo **Campaña** con niveles progresivos de dificultad
 - Modo **Supervivencia** con oleadas infinitas y escalado dinámico
 - Sistema de **Power-ups** con efectos temporales y permanentes
-- HUD premium en estilo neon con barras animadas
+- Sistema de **Cristales** como moneda meta-progresiva ganada en partidas
+- **Mejoras Permanentes** comprables entre partidas (Vida, Velocidad, Escudo)
+- HUD premium en estilo neon con barras animadas y minimapa
+- **Jefe** con IA de seguimiento y disparo en abanico (aparece cada 3 niveles)
+- Combo multiplicador de puntaje (hasta ×4)
+- **Controles táctiles** para móvil (D-Pad + botones de acción)
+- Sistema de audio por `AudioContext` sin gaps entre sonidos simultáneos
 - Arquitectura optimizada con **Object Pools** y **canvas offscreen**
 
 ---
 
 ## 🕹️ Controles
+
+### Teclado (PC)
 
 | Tecla | Acción |
 |---|---|
@@ -28,7 +36,18 @@
 | `D` / `→` | Rotar derecha |
 | `S` / `↓` | Frenar |
 | `SPACE` | Disparar |
+| `G` | Ciclar objetivo del Misil 🚀 |
 | `P` / `ESC` | Pausar / Reanudar |
+
+### Móvil (táctil)
+
+| Botón | Acción |
+|---|---|
+| D-Pad ▲ | Acelerar |
+| D-Pad ◀ / ▶ | Rotar |
+| D-Pad ▼ | Frenar |
+| 🔥 | Disparar |
+| ⏸ | Pausa |
 
 ---
 
@@ -36,15 +55,15 @@
 
 ```
 ASTEROIDS-REBORN/
-├── index.html              # Punto de entrada — HTML semántico completo
+├── index.html              # Punto de entrada — incluye controles táctiles
 ├── css/
-│   └── style.css           # Diseño neon premium, HUD animado, responsive
+│   └── style.css           # Diseño neon premium, HUD animado, responsive móvil
 ├── js/
 │   ├── config.js           # Configuración central (velocidades, colores, balanceo)
-│   ├── utils.js            # Pool de objetos, detección de colisión, utilidades
+│   ├── utils.js            # Pool de objetos, utilidades
 │   ├── entities.js         # Clase base Entity (x, y, vx, vy, radius, active)
 │   ├── input.js            # Manejador de teclado con preventDefault en teclas de juego
-│   ├── audio.js            # Controlador de audio (Web Audio / HTMLAudio)
+│   ├── audio.js            # AudioContext sin gaps + política de autoplay + pausa en background
 │   ├── renderer.js         # Fondo parallax pre-renderizado en canvas offscreen
 │   ├── player.js           # Nave del jugador con cache offscreen y multi-arma
 │   ├── asteroids.js        # Asteroides con forma irregular y cache offscreen
@@ -54,11 +73,11 @@ ASTEROIDS-REBORN/
 │   ├── enemies.js          # (Reservado: enemigos básicos con IA)
 │   ├── bosses.js           # Lógica de jefe: IA, movimiento y patrones de disparo
 │   ├── ui.js               # HUD: salud, escudo, puntaje, arma activa, notificaciones
-│   ├── saveSystem.js       # Persistencia en localStorage (highscore, maxLevel)
-│   ├── upgrades.js         # (Reservado: sistema de mejoras roguelite)
+│   ├── saveSystem.js       # (Reservado: persistencia avanzada)
+│   ├── upgrades.js         # (Reservado: sistema de mejoras roguelite avanzado)
 │   ├── achievements.js     # (Reservado: logros)
-│   ├── game.js             # Motor principal — game loop, física, colisiones
-│   └── main.js             # Inicialización y binding de botones
+│   ├── game.js             # Motor principal — game loop, física, colisiones, cristales
+│   └── main.js             # Inicialización, botones, controles táctiles, mejoras UI
 └── public/
     ├── images/             # Assets gráficos (logo.png)
     └── sounds/             # Efectos de audio (.mp3)
@@ -68,25 +87,42 @@ ASTEROIDS-REBORN/
 
 ## ⚙️ Sistema de Armas
 
-| Arma | Icóno | Cadencia | Daño | Velocidad | Municción | Especial |
+| Arma | Icóno | Cadencia | Daño | Velocidad | Munición | Especial |
 |---|---|---|---|---|---|---|
 | Láser | 🔵 | Alta | 10 | 20 | ∞ | Preciso, arma base infinita |
 | Dispersor | 🌟 | Media | 7×3 | 17 | 18 disp. | 3 proyectiles en cono |
 | Plasma | 💠 | Baja | 25 | 14 | 12 disp. | Esfera de energía con halo |
 | Ráfaga | ⚡ | Muy alta | 5 | 22 | 40 disp. | Disparo rápido con dispersión |
-| Misil | 🚀 | Muy baja | 999 | 12 | 5 misiles | Guiado hacia el asteroide más cercano, destrucción total |
+| Misil | 🚀 | Muy baja | 999 | 12 | 5 misiles | Guiado automático + ciclar con G |
 
 ### Munición Limitada
-Todas las armas secundarias tienen un límite de disparos visible en el HUD. Al agotar la munición, el arma regresa automáticamente al **Láser** con una notificación en pantalla.
+Todas las armas secundarias tienen límite de disparos visible en el HUD. Al agotarse regresan automáticamente al **Láser** con notificación.
 
-### Misil Dirigido
-El **Misil** es el arma especial más poderosa:
-- Se guia automáticamente hacia el asteroide más cercano (homing AI)
-- Destruye **completamente** el asteroide en su forma más pequeña sin fragmentarlo
-- Para asteroides grandes y medianos, también los elimina de un golpe con una explosión extra
-- Solo 5 misiles disponibles por recarga de power-up
+### Misil Dirigido (actualizado)
+El **Misil** es el arma más poderosa:
+- Al equiparse, **selecciona automáticamente** el asteroide más cercano como objetivo (cuadro naranja visible)
+- Presiona **G** para ciclar al siguiente objetivo
+- Destruye asteroides completamente (sin fragmentar) con una explosión extra grande
+- Solo 5 misiles por recarga de power-up
 
-Las armas se obtienen recogiendo **power-ups hexagonales** que caen de los asteroides grandes.
+---
+
+## 💎 Sistema de Cristales y Mejoras Permanentes
+
+Los **cristales** son la moneda meta-progresiva del juego:
+
+| Cómo obtenerlos | Cantidad |
+|---|---|
+| Destruir asteroide **grande** (tamaño 3) | 1 💎 |
+| Destruir asteroide **mediano** (25% probabilidad) | 1 💎 |
+
+Los cristales persisten entre partidas en `localStorage`. Se gastan en la pantalla de **Mejoras**:
+
+| Mejora | Efecto | Costo base | Escala |
+|---|---|---|---|
+| ❤ Vida Máxima | +20 HP permanente | 10 💎 | +10 por nivel |
+| ⚡ Velocidad | +5% velocidad (próxima partida) | 15 💎 | +15 por nivel |
+| 🛡 Escudo | +15 escudo (próxima partida) | 20 💎 | +20 por nivel |
 
 ---
 
@@ -95,10 +131,10 @@ Las armas se obtienen recogiendo **power-ups hexagonales** que caen de los aster
 | Power-Up | Color | Efecto |
 |---|---|---|
 | Arma: Láser | Cian | Cambia al arma Láser (∞ balas) |
-| Arma: Dispersor | Magenta | 18 disparos en abanico, luego regresa al Láser |
-| Arma: Plasma | Verde | 12 disparos potentes, luego regresa al Láser |
-| Arma: Ráfaga | Amarillo | 40 disparos rápidos, luego regresa al Láser |
-| Arma: Misil | Naranja | 5 misiles dirigidos que destruyen asteroides totalmente |
+| Arma: Dispersor | Magenta | 18 disparos en abanico |
+| Arma: Plasma | Verde | 12 disparos potentes |
+| Arma: Ráfaga | Amarillo | 40 disparos rápidos |
+| Arma: Misil | Naranja | 5 misiles guiados (auto-objetivo) |
 | Escudo | Azul | +30 de escudo |
 | Vida | Rojo | +25 de vida |
 | Velocidad | Naranja | ×1.7 velocidad por 5 seg |
@@ -109,17 +145,16 @@ Las armas se obtienen recogiendo **power-ups hexagonales** que caen de los aster
 ## 🚀 Modos de Juego
 
 ### 🎯 Campaña
-- Niveles progresivos (1 → N)
-- Cada nivel añade más asteroides (`4 + nivel`)
+- Niveles progresivos (1 → N), cada nivel con `4 + nivel` asteroides
 - Los asteroides grandes se fragmentan en 2 medianos, los medianos en 2 pequeños
-- Cada 3 niveles aparece un **Jefe** con un patrón de ataque tipo bullet-hell
-- Al completar un nivel se guarda el progreso para selección de nivel
+- Cada 3 niveles aparece un **Jefe** con patrón bullet-hell
+- Progreso guardado para selección de nivel posterior
 
 ### ☠ Supervivencia
-- Oleadas infinitas de asteroides con tasa de spawn que escala lentamente
-- Máximo de 18 asteroides simultáneos para mantener el rendimiento
-- Timer de supervivencia visible en el HUD
-- Puntaje ×2 por cada asteroide destruido
+- Oleadas infinitas con spawn rate escalable
+- Máximo 18 asteroides simultáneos
+- Timer de supervivencia en HUD
+- Puntaje ×2 por asteroide destruido
 
 ---
 
@@ -128,11 +163,18 @@ Las armas se obtienen recogiendo **power-ups hexagonales** que caen de los aster
 ### Game Loop
 ```
 requestAnimationFrame(loop)
-  └── update(dt)          ← Física, IA, colisiones, spawn
+  └── update(dt)          ← Física, IA, colisiones, spawn, cristales
   └── draw()              ← Render canvas en orden de capas
 ```
 
-El `dt` (delta time) está normalizado a 60 FPS y clampeado a máximo 3× para evitar saltos si la pestaña pierde foco.
+`dt` normalizado a 60 FPS, clampeado a 3× para prevenir saltos.
+
+### Sistema de Audio (AudioContext)
+- Usa `AudioContext` con `AudioBufferSourceNode` para **cero gaps** en disparos simultáneos
+- La música del menú se **encola** y espera la primera interacción del usuario (política de autoplay)
+- Al cambiar de pestaña (`visibilitychange`) el volumen maestro se corta inmediatamente
+- Al cerrar/navegar fuera (`pagehide`, `beforeunload`) el contexto se suspende
+- Fade-in/out suave en transiciones de música de fondo
 
 ### Optimizaciones de Rendimiento
 
@@ -140,43 +182,11 @@ El `dt` (delta time) está normalizado a 60 FPS y clampeado a máximo 3× para e
 |---|---|---|
 | **Canvas Offscreen** | Fondo de estrellas, asteroides, nave, power-ups | Elimina paths + shadowBlur repetidos cada frame |
 | **Object Pool** | Partículas (cap. 600) y proyectiles (cap. 200) | Sin GC pressure en explosiones |
-| **Filtrado in-place** | Limpieza de arrays de entidades | Sin `Array.filter()` (evita allocaciones) |
-| **Colisión x²-y²** | En lugar de `Math.hypot()` | ~30% más rápido en hot path O(n²) |
+| **Filtrado in-place** | Limpieza de arrays de entidades | Sin `Array.filter()` |
+| **Colisión x²+y²** | En lugar de `Math.hypot()` | ~30% más rápido en O(n²) |
 | **UI diff caching** | HUD solo actualiza DOM si hay cambio real | Elimina thrashing DOM cada frame |
 | **Sin Math.pow en loop** | Fricción por multiplicación lineal | ~5× más rápido por entidad |
-| **Sin window.innerWidth** | Dimensiones cacheadas en `game.W/H` | Evita reflow en hot path |
-| **backdrop-filter eliminado del HUD** | Solo en menús estáticos | Elimina capa de composición GPU extra |
-| **Partículas capeadas** | Máx 400 simultáneas | Evita acumulación en explosiones grandes |
-
-### Sistema de Colisiones
-Detección circular O(n²) con cálculo de distancia al cuadrado:
-```js
-const dx = a.x - b.x, dy = a.y - b.y;
-const r = a.radius + b.radius;
-if (dx*dx + dy*dy < r*r) { /* colisión */ }
-```
-
-### Object Pool
-```js
-class Pool {
-    get()     { return this.items.pop() ?? this.createFn(); }
-    release() { this.items.push(item); }
-}
-```
-
----
-
-## 🎨 Sistema Visual
-
-### Modo Neon (por defecto)
-- Fondo oscuro `#050510` con nebulosas radiales y 250 estrellas
-- Nave en cian `#00ffff` con glow neon
-- Asteroides con borde de color y glow (grande=naranja, mediano=amarillo, pequeño=azul)
-- Partículas de color según el tipo de impacto
-
-### Modo Realista (toggle en Configuración)
-- Paleta de tonos apagados, nave en azul suave
-- Fondo más oscuro `#111118`
+| **backdrop-filter eliminado del HUD** | Solo en menús estáticos | Elimina capa composición GPU extra |
 
 ---
 
@@ -184,8 +194,10 @@ class Pool {
 
 | Clave | Tipo | Descripción |
 |---|---|---|
-| `highScore` | Number | Puntaje máximo histórico |
+| `highScore` | Number | Puntaje máximo histórico (dinámico, siempre actualizado) |
 | `maxLevel` | Number | Nivel más alto desbloqueado en campaña |
+| `crystals` | Number | Cristales acumulados entre sesiones |
+| `upgrades` | JSON | Niveles de mejoras permanentes compradas |
 
 ---
 
@@ -195,13 +207,13 @@ Archivos en `public/sounds/`:
 
 | ID | Archivo | Evento |
 |---|---|---|
-| `Boss_Explosion` | Boss_Explosion.mp3 | Explocion del jefe |
+| `Boss_Explosion` | Boss_Explosion.mp3 | Explosión del jefe |
 | `Boss_Hit` | Boss_Hit.mp3 | El jefe recibe daño |
 | `Boss` | Boss.mp3 | El jefe aparece |
 | `Game_Win` | Game_Win.mp3 | El jugador gana |
-| `music_boss` | music_boss.mp3 | Musica del jefe |
-| `music_gameplay` | music_gameplay.mp3 | Musica del juego |
-| `music_menu` | music_menu.mp3 | Musica del menu |
+| `music_boss` | music_boss.mp3 | Música del jefe |
+| `music_gameplay` | music_gameplay.mp3 | Música del juego |
+| `music_menu` | music_menu.mp3 | Música del menú |
 | `Player_Win_Life` | Player_Win_Life.mp3 | El jugador gana una vida |
 | `Powerup_Health` | Powerup_Health.mp3 | El jugador obtiene vida |
 | `Powerup_Weapon` | Powerup_Weapon.mp3 | El jugador obtiene un arma |
@@ -212,15 +224,20 @@ Archivos en `public/sounds/`:
 | `Player_Lost_Life` | Player_Lost_Life.mp3 | Jugador recibe daño |
 | `Game_Over` | Game_Over.mp3 | Fin de partida |
 | `Level_Win` | Level_Win.mp3 | Nivel completado |
+
+---
+
+## 📱 Soporte Móvil
+
+El juego incluye controles táctiles para dispositivos móviles:
+- **D-Pad** en la esquina inferior izquierda (▲ acelerar, ◀▶ rotar, ▼ frenar)
+- **Botón de fuego 🔥** y **pausa ⏸** en la esquina inferior derecha
+- HUD compacto adaptado a pantallas pequeñas con `clamp()` y media queries
+- Los controles táctiles se ocultan automáticamente en tablets/PC
+
 ---
 
 ## 🛠️ Instalación y Ejecución
-
-### Sin dependencias (abrir directo)
-```
-Doble clic en index.html
-```
-> ⚠️ Algunos navegadores bloquean audio en archivos locales.
 
 ### Con servidor local (recomendado)
 ```bash
@@ -236,6 +253,8 @@ python -m http.server 5500
 
 Luego abrir: `http://localhost:5500`
 
+> ⚠️ El audio requiere interacción del usuario antes de reproducirse (política de autoplay del navegador). La música del menú comenzará automáticamente al primer clic o tecla.
+
 ---
 
 ## 📦 Dependencias
@@ -243,27 +262,31 @@ Luego abrir: `http://localhost:5500`
 - **Cero dependencias** de npm/bundlers
 - Google Fonts: `Orbitron` (HUD) + `Exo 2` (texto general)
 - HTML5 Canvas API
-- Web Audio API (para sonido)
+- **Web Audio API** (AudioContext para audio sin gaps)
 
 ---
 
 ## 🐛 Bugs Conocidos / Limitaciones
 
-- Los enemigos básicos con IA avanzada están reservados para implementación futura (solo hay jefes actualmente)
-- El sistema de mejoras permanentes (cristales) aún no persiste compras entre sesiones
-- En pantallas muy pequeñas (<480px) el HUD puede solaparse
+- Los enemigos básicos con IA avanzada están reservados para implementación futura (solo hay jefes)
+- El sistema de mejoras de Velocidad/Escudo aplica en la **próxima partida**, no retroactivamente
 
 ---
 
 ## 🗺️ Roadmap
 
+- [x] Sistema multi-arma con munición limitada
+- [x] Jefes con IA de seguimiento y disparo en abanico (cada 3 niveles)
+- [x] Misil guiado con auto-objetivo y ciclo manual (tecla G)
+- [x] Sistema de cristales meta-progresivo
+- [x] Mejoras permanentes (Vida, Velocidad, Escudo)
+- [x] Controles táctiles para móvil
+- [x] Audio con AudioContext (sin gaps, respeta política de autoplay)
+- [x] Récord dinámico desde localStorage (nunca estático)
 - [ ] Enemigos con IA (patrullaje, persecución, evasión)
-- [x] Jefes multi-fase con patrones de ataque únicos (Jefe implementado: IA de seguimiento + disparo en abanico, aparece cada 3 niveles)
-- [ ] Sistema de mejoras permanentes con moneda del juego
-- [ ] Logros desbloqueables
 - [ ] Tabla de puntuaciones locales (top 5)
-- [ ] Modo cooperativo local (2 jugadores, mismo teclado)
-- [ ] Editor de niveles básico
+- [ ] Logros desbloqueables
+- [ ] Modo cooperativo local (2 jugadores)
 
 ---
 
@@ -275,4 +298,4 @@ Diseño: Estética Neon arcade (inspirado en Asteroids, Geometry Wars)
 
 ---
 
-*Versión actual: **REBORN · NEON EDITION***
+*Versión actual: **REBORN · NEON EDITION v2.0***

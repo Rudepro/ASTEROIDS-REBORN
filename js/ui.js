@@ -123,7 +123,7 @@ const UI = {
     showGameOver(score, stats) {
         this.showScreen('game-over-screen');
         if (this.elements.finalScore) this.elements.finalScore.innerText = score.toLocaleString();
-        
+
         if (stats) {
             if (this.elements.statAsteroids) this.elements.statAsteroids.innerText = stats.asteroidsDestroyed || 0;
             if (this.elements.statTime) {
@@ -143,9 +143,14 @@ const UI = {
                 }
                 this.elements.statWeapon.innerText = favWep;
             }
+            // Mostrar cristales acumulados totales
+            const statCrystals = document.getElementById('stat-crystals');
+            if (statCrystals) {
+                statCrystals.innerText = parseInt(localStorage.getItem('crystals') || '0').toLocaleString();
+            }
         }
 
-        // Guardar high score
+        // Guardar high score y leer siempre desde localStorage (nunca estático)
         const prev = parseInt(localStorage.getItem('highScore') || '0');
         if (score > prev) localStorage.setItem('highScore', score);
         const hs = parseInt(localStorage.getItem('highScore') || '0');

@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>ASTEROIDS REBORN - THE LAST STAND</title>
     <meta name="description" content="Asteroids Reborn - Juego espacial arcade de acción con múltiples modos de juego.">
     <link rel="icon" type="image/png" href="public/images/logo.png">
@@ -47,6 +47,7 @@
                         <span class="btn-icon">⚙</span> Configuración
                     </button>
                 </div>
+                <div class="version-tag">NEON EDITION · v2.0</div>
             </div>
 
             <!-- ===================== CONFIGURACIÓN ===================== -->
@@ -71,9 +72,12 @@
                         <span class="key">D / →</span><span>Rotar Der.</span>
                         <span class="key">S / ↓</span><span>Frenar</span>
                         <span class="key">SPACE</span><span>Disparar</span>
+                        <span class="key">G</span><span>Ciclar objetivo (Misil)</span>
                         <span class="key">P / ESC</span><span>Pausa</span>
                     </div>
                     <p class="hint-note">Recoge los <strong>power-ups hexagonales</strong> para cambiar de arma.</p>
+                    <p class="hint-note">Con el <strong>Misil</strong> 🚀, el objetivo más cercano se bloquea automáticamente. Usa <strong>G</strong> para cambiar el objetivo.</p>
+                    <p class="hint-note">En móvil usa los <strong>botones táctiles</strong> de la esquina inferior.</p>
                 </div>
             </div>
 
@@ -81,23 +85,27 @@
             <div id="upgrades-screen" class="screen hidden">
                 <h2>MEJORAS PERMANENTES</h2>
                 <p class="crystals-display">💎 Cristales: <span id="meta-crystals">0</span></p>
+                <p class="crystals-hint">Los cristales se obtienen destruyendo asteroides grandes durante las partidas.</p>
                 <div class="cards-container">
                     <div class="upgrade-card" id="upg-health">
                         <div class="upgrade-icon">❤</div>
                         <h3>Vida Máxima</h3>
                         <p>Nivel: <span id="lvl-health">0</span></p>
+                        <p>+20 HP por nivel</p>
                         <p class="cost">Costo: <span id="cost-health">10</span> 💎</p>
                     </div>
                     <div class="upgrade-card" id="upg-speed">
                         <div class="upgrade-icon">⚡</div>
                         <h3>Velocidad</h3>
                         <p>Nivel: <span id="lvl-speed">0</span></p>
+                        <p>+5% velocidad por nivel</p>
                         <p class="cost">Costo: <span id="cost-speed">15</span> 💎</p>
                     </div>
                     <div class="upgrade-card" id="upg-shield">
                         <div class="upgrade-icon">🛡</div>
                         <h3>Escudo</h3>
                         <p>Nivel: <span id="lvl-shield">0</span></p>
+                        <p>+15 escudo por nivel</p>
                         <p class="cost">Costo: <span id="cost-shield">20</span> 💎</p>
                     </div>
                 </div>
@@ -153,7 +161,7 @@
                 </div>
 
                 <!-- Indicador de arma actual (esquina inferior izquierda) -->
-                <div class="weapon-panel">
+                <div class="weapon-panel" id="weapon-panel">
                     <div class="weapon-label">ARMA ACTIVA</div>
                     <div class="weapon-display">
                         <span id="weapon-icon" class="weapon-icon-big">⚡</span>
@@ -168,7 +176,7 @@
                 <div id="powerup-notif" class="powerup-notif hidden">⬆ Láser</div>
 
                 <!-- Mini-mapa -->
-                <canvas id="minimap-canvas" width="150" height="150"></canvas>
+                <canvas id="minimap-canvas" width="120" height="120"></canvas>
             </div>
 
             <!-- ===================== PAUSA ===================== -->
@@ -199,6 +207,7 @@
                         <p>Asteroides: <span id="stat-asteroids" class="stat-val">0</span></p>
                         <p>Tiempo: <span id="stat-time" class="stat-val">0:00</span></p>
                         <p>Arma fav: <span id="stat-weapon" class="stat-val">Ninguna</span></p>
+                        <p>Cristales: <span id="stat-crystals" class="stat-val">0</span></p>
                     </div>
                     <div id="high-score-display" class="high-score-display">Récord: 0</div>
                     <div class="menu-buttons">
@@ -246,6 +255,23 @@
             </div>
 
         </div><!-- /ui-layer -->
+
+        <!-- ===================== CONTROLES TÁCTILES (MÓVIL) ===================== -->
+        <div id="touch-controls" aria-hidden="true">
+            <!-- D-Pad izquierdo -->
+            <div class="dpad">
+                <button id="touch-up"    class="dpad-btn dpad-up"    aria-label="Acelerar">▲</button>
+                <button id="touch-left"  class="dpad-btn dpad-left"  aria-label="Izquierda">◀</button>
+                <button id="touch-right" class="dpad-btn dpad-right" aria-label="Derecha">▶</button>
+                <button id="touch-down"  class="dpad-btn dpad-down"  aria-label="Frenar">▼</button>
+            </div>
+            <!-- Botones de acción derechos -->
+            <div class="action-buttons">
+                <button id="touch-fire"  class="action-btn fire-btn"  aria-label="Disparar">🔥</button>
+                <button id="touch-pause" class="action-btn pause-btn" aria-label="Pausa">⏸</button>
+            </div>
+        </div>
+
     </div><!-- /game-container -->
 
     <!-- Scripts (orden de dependencias) -->

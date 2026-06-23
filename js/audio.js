@@ -1,197 +1,264 @@
 // ============================================================
-// AUDIO.JS - Sistema de audio expandido con BGM y SFX categorizado
+// AUDIO.JS - Sistema de audio con AudioContext (sin gaps entre SFX)
 // ============================================================
 
 const AudioController = {
-    sounds: {},
-    bgm: null,          // Pista de música de fondo actual
-    bgmVolume: 0.35,    // Volumen de música de fondo
-    sfxVolume: 0.55,    // Volumen de efectos de sonido
+    // ── Estado ──────────────────────────────────────────────
+    _ctx: null,           // AudioContext compartido
+    _buffers: {},         // AudioBuffer por ID
+    _gainMaster: null,    // GainNode maestro
+    _gainBGM: null,       // GainNode para música
+    _gainSFX: null,       // GainNode para SFX
+
+    bgmSource: null,      // BufferSourceNode actual de BGM
+    bgmId: null,          // ID del BGM en reproducción
+    bgmVolume: 0.35,
+    sfxVolume: 0.55,
     muted: false,
 
-    // Sonidos registrados (ID → archivo)
+    // Flag: el usuario ya interactuó (necesario para autoplay)
+    _unlocked: false,
+
+    // Cola de sonidos a reproducir cuando se desbloquee el contexto
+    _pendingBGM: null,
+
+    // ── Listas de archivos ────────────────────────────────
     _sfxFiles: [
-        // === Existentes ===
         'Shot', 'Enemy_Died', 'Game_Over', 'Boss', 'Boss_Explosion', 'Boss_Hit',
         'Game_Win', 'Level_Win', 'Player_Lost_Life', 'Player_Win_Life', 'Shield_Activate',
-        // === Disparos por tipo de arma ===
         'Shot_Plasma', 'Shot_Sniper', 'Shot_Rapid',
-        // === Explosiones por tamaño ===
         'Asteroid_Break_Large', 'Asteroid_Break_Medium', 'Asteroid_Break_Small',
-        // === Power-ups ===
         'Powerup_Weapon', 'Powerup_Health', 'Powerup_Shield',
         'Powerup_Speed', 'Powerup_Invincible',
-        // === Combo ===
         'Combo_x2', 'Combo_x3', 'Combo_x4',
-        // === UI ===
         'UI_Click', 'UI_Hover',
-        // === Jugador ===
         'Player_Invincible',
-        // === Nivel ===
         'Level_Start',
     ],
 
-    // Música de fondo (ID → archivo)
     _bgmFiles: {
         'music_menu':     'music_menu',
         'music_gameplay': 'music_gameplay',
         'music_boss':     'music_boss',
     },
 
+    // ── Inicialización ────────────────────────────────────
     init() {
-        // Cargar SFX — usar fallback si el archivo no existe
-        this._sfxFiles.forEach(f => {
-            const a = new Audio(`public/sounds/${f}.mp3`);
-            a.volume = this.sfxVolume;
-            a.preload = 'auto';
-            this.sounds[f] = a;
+        // Precarga mediante HTMLAudio para obtener los blobs de forma rápida;
+        // Los convertiremos a AudioBuffer cuando el contexto esté disponible.
+        // Por ahora guardamos las URLs para cargar bajo demanda.
+        this._allIds = [...this._sfxFiles, ...Object.keys(this._bgmFiles)];
+        this._loadedCount = 0;
+        this._totalCount = this._allIds.length;
+
+        // Escuchar la primera interacción del usuario para desbloquear audio
+        const unlock = () => {
+            if (this._unlocked) return;
+            this._createContext();
+            this._loadAllBuffers();
+            this._unlocked = true;
+            // Reproducir BGM pendiente si lo hay
+            if (this._pendingBGM) {
+                const id = this._pendingBGM;
+                this._pendingBGM = null;
+                setTimeout(() => this.playBGM(id), 200);
+            }
+            document.removeEventListener('pointerdown', unlock);
+            document.removeEventListener('keydown', unlock);
+        };
+        document.addEventListener('pointerdown', unlock);
+        document.addEventListener('keydown', unlock);
+
+        // Silenciar cuando el usuario cambia de pestaña o minimiza
+        document.addEventListener('visibilitychange', () => {
+            if (!this._ctx) return;
+            if (document.hidden) {
+                if (this._gainMaster) this._gainMaster.gain.setValueAtTime(0, this._ctx.currentTime);
+            } else {
+                if (!this.muted && this._gainMaster) {
+                    this._gainMaster.gain.setValueAtTime(1, this._ctx.currentTime);
+                }
+            }
         });
 
-        // Cargar BGM
-        Object.entries(this._bgmFiles).forEach(([id, file]) => {
-            const a = new Audio(`public/sounds/${file}.mp3`);
-            a.volume = this.bgmVolume;
-            a.loop = true;
-            a.preload = 'auto';
-            this.sounds[id] = a;
+        // Pausar fuente al cerrar/navegar fuera de la página
+        window.addEventListener('pagehide', () => this._suspendAll());
+        window.addEventListener('beforeunload', () => this._suspendAll());
+    },
+
+    _suspendAll() {
+        if (this.bgmSource) {
+            try { this.bgmSource.stop(); } catch (_) {}
+            this.bgmSource = null;
+        }
+        if (this._ctx && this._ctx.state === 'running') {
+            this._ctx.suspend().catch(() => {});
+        }
+    },
+
+    _createContext() {
+        if (this._ctx) return;
+        this._ctx = new (window.AudioContext || window.webkitAudioContext)();
+
+        this._gainMaster = this._ctx.createGain();
+        this._gainMaster.gain.value = 1;
+        this._gainMaster.connect(this._ctx.destination);
+
+        this._gainBGM = this._ctx.createGain();
+        this._gainBGM.gain.value = this.bgmVolume;
+        this._gainBGM.connect(this._gainMaster);
+
+        this._gainSFX = this._ctx.createGain();
+        this._gainSFX.gain.value = this.sfxVolume;
+        this._gainSFX.connect(this._gainMaster);
+    },
+
+    _loadAllBuffers() {
+        const all = [
+            ...this._sfxFiles.map(f => ({ id: f, file: f })),
+            ...Object.entries(this._bgmFiles).map(([id, file]) => ({ id, file }))
+        ];
+        all.forEach(({ id, file }) => {
+            fetch(`public/sounds/${file}.mp3`)
+                .then(r => r.arrayBuffer())
+                .then(ab => this._ctx.decodeAudioData(ab))
+                .then(buf => { this._buffers[id] = buf; })
+                .catch(() => { /* archivo faltante: ignorar silenciosamente */ });
         });
     },
 
-    play(soundName) {
-        if (this.muted) return;
-        const snd = this.sounds[soundName];
-        if (!snd) return;
-        // Clonar para disparos simultáneos (SFX cortos)
-        const clone = snd.cloneNode();
-        clone.volume = this.sfxVolume;
-        clone.play().catch(() => {}); // Silenciar errores de política de autoplay
+    // ── Reproducción SFX ─────────────────────────────────
+    play(soundId) {
+        if (this.muted || !this._ctx || !this._buffers[soundId]) return;
+        if (document.hidden) return;
+        try {
+            const src = this._ctx.createBufferSource();
+            src.buffer = this._buffers[soundId];
+            src.connect(this._gainSFX);
+            src.start(this._ctx.currentTime); // sin delay: sin gap
+        } catch (_) {}
     },
 
-    // Volumen del SFX según tipo de arma
     playWeaponShot(weaponId) {
         if (this.muted) return;
         const shotMap = {
             'PLASMA':  'Shot_Plasma',
-            'MISSILE': 'Shot_Sniper',  // reutiliza el sonido largo (impacto de misil)
+            'MISSILE': 'Shot_Sniper',
             'RAPID':   'Shot_Rapid',
             'SPREAD':  'Shot',
             'LASER':   'Shot',
         };
-        // Intentar el sonido específico; si no existe, usar Shot genérico
         const id = shotMap[weaponId] || 'Shot';
-        const snd = this.sounds[id];
-        if (snd && snd.readyState >= 2) {
-            this.play(id);
-        } else {
-            this.play('Shot');
-        }
+        this.play(this._buffers[id] ? id : 'Shot');
     },
 
-    // Sonido de explosión según tamaño del asteroide
     playAsteroidBreak(size) {
         if (this.muted) return;
         const map = { 3: 'Asteroid_Break_Large', 2: 'Asteroid_Break_Medium', 1: 'Asteroid_Break_Small' };
         const id = map[size];
-        const snd = this.sounds[id];
-        if (snd && snd.readyState >= 2) {
-            this.play(id);
-        } else {
-            this.play('Enemy_Died'); // fallback
-        }
+        this.play(this._buffers[id] ? id : 'Enemy_Died');
     },
 
-    // Sonido de power-up según tipo
     playPowerup(type) {
         if (this.muted) return;
         const map = {
-            'weapon':    'Powerup_Weapon',
-            'health':    'Powerup_Health',
-            'shield':    'Powerup_Shield',
-            'speed':     'Powerup_Speed',
-            'invincible':'Powerup_Invincible',
+            'weapon':     'Powerup_Weapon',
+            'health':     'Powerup_Health',
+            'shield':     'Powerup_Shield',
+            'speed':      'Powerup_Speed',
+            'invincible': 'Powerup_Invincible',
         };
         const id = map[type];
-        const snd = this.sounds[id];
-        if (snd && snd.readyState >= 2) {
-            this.play(id);
-        } else {
-            this.play('Player_Win_Life'); // fallback
-        }
+        this.play(this._buffers[id] ? id : 'Player_Win_Life');
     },
 
-    // Sonido de combo
     playCombo(level) {
         if (this.muted) return;
         const map = { 2: 'Combo_x2', 3: 'Combo_x3', 4: 'Combo_x4' };
         const id = map[Math.min(level, 4)];
-        if (!id) return;
-        const snd = this.sounds[id];
-        if (snd && snd.readyState >= 2) {
-            this.play(id);
-        }
+        if (id) this.play(id);
     },
 
-    // Reproducir música de fondo (con transición suave)
+    // ── Música de fondo ───────────────────────────────────
     playBGM(id) {
         if (this.muted) return;
-        if (this.bgm === this.sounds[id]) return; // ya está sonando
+        if (this.bgmId === id && this.bgmSource) return; // ya suena
 
-        // Detener BGM anterior
-        this.stopBGM();
+        // Si el contexto aún no está desbloqueado, encolar
+        if (!this._unlocked || !this._ctx) {
+            this._pendingBGM = id;
+            return;
+        }
 
-        const snd = this.sounds[id];
-        if (!snd) return;
-        snd.currentTime = 0;
-        snd.volume = 0;
-        snd.play().catch(() => {});
-        this.bgm = snd;
+        this._stopBGMImmediate();
 
-        // Fade in suave
-        this._fadeIn(snd, this.bgmVolume, 60);
+        const buf = this._buffers[id];
+        if (!buf) {
+            // Puede que todavía esté cargando; reintentar en 500 ms
+            setTimeout(() => {
+                if (this.bgmId !== id) this.playBGM(id);
+            }, 500);
+            return;
+        }
+
+        const src = this._ctx.createBufferSource();
+        src.buffer = buf;
+        src.loop = true;
+
+        // Fade in via GainNode de BGM
+        this._gainBGM.gain.cancelScheduledValues(this._ctx.currentTime);
+        this._gainBGM.gain.setValueAtTime(0, this._ctx.currentTime);
+        this._gainBGM.gain.linearRampToValueAtTime(this.bgmVolume, this._ctx.currentTime + 1.5);
+
+        src.connect(this._gainBGM);
+        src.start(this._ctx.currentTime);
+
+        this.bgmSource = src;
+        this.bgmId = id;
     },
 
     stopBGM() {
-        if (!this.bgm) return;
-        const snd = this.bgm;
-        this._fadeOut(snd, 40, () => {
-            snd.pause();
-            snd.currentTime = 0;
-        });
-        this.bgm = null;
+        if (!this._ctx || !this.bgmSource) return;
+        const src = this.bgmSource;
+        this._gainBGM.gain.cancelScheduledValues(this._ctx.currentTime);
+        this._gainBGM.gain.setValueAtTime(this._gainBGM.gain.value, this._ctx.currentTime);
+        this._gainBGM.gain.linearRampToValueAtTime(0, this._ctx.currentTime + 0.6);
+        setTimeout(() => {
+            try { src.stop(); } catch (_) {}
+        }, 700);
+        this.bgmSource = null;
+        this.bgmId = null;
     },
 
-    _fadeIn(audio, targetVol, frames) {
-        const step = targetVol / frames;
-        let f = 0;
-        const tick = () => {
-            if (f++ < frames) {
-                audio.volume = Math.min(targetVol, audio.volume + step);
-                requestAnimationFrame(tick);
-            }
-        };
-        tick();
-    },
-
-    _fadeOut(audio, frames, onDone) {
-        const startVol = audio.volume;
-        const step = startVol / frames;
-        let f = 0;
-        const tick = () => {
-            if (f++ < frames) {
-                audio.volume = Math.max(0, audio.volume - step);
-                requestAnimationFrame(tick);
-            } else {
-                if (onDone) onDone();
-            }
-        };
-        tick();
+    _stopBGMImmediate() {
+        if (this.bgmSource) {
+            try { this.bgmSource.stop(); } catch (_) {}
+            this.bgmSource = null;
+        }
+        this.bgmId = null;
+        if (this._gainBGM) {
+            this._gainBGM.gain.cancelScheduledValues(this._ctx.currentTime);
+            this._gainBGM.gain.setValueAtTime(0, this._ctx.currentTime);
+        }
     },
 
     toggleMute() {
         this.muted = !this.muted;
-        if (this.muted && this.bgm) this.bgm.pause();
-        else if (!this.muted && this.bgm) this.bgm.play().catch(() => {});
+        if (this._gainMaster) {
+            this._gainMaster.gain.setValueAtTime(this.muted ? 0 : 1, this._ctx ? this._ctx.currentTime : 0);
+        }
         return this.muted;
+    },
+
+    // Ajustar volumen BGM en tiempo real
+    setBGMVolume(v) {
+        this.bgmVolume = v;
+        if (this._gainBGM) this._gainBGM.gain.setValueAtTime(v, this._ctx.currentTime);
+    },
+
+    setSFXVolume(v) {
+        this.sfxVolume = v;
+        if (this._gainSFX) this._gainSFX.gain.setValueAtTime(v, this._ctx.currentTime);
     }
 };
 

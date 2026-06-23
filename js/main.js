@@ -7,10 +7,10 @@ let game;
 window.onload = () => {
     game = new Game('game-canvas');
 
-    // --- BOTONES PRINCIPALES ---
+    // ── BOTONES PRINCIPALES ──────────────────────────────────
     document.getElementById('btn-start').addEventListener('click', () => {
         game.canvas.classList.remove('fade-in');
-        void game.canvas.offsetWidth; // trigger reflow
+        void game.canvas.offsetWidth;
         game.canvas.classList.add('fade-in');
         game.start('campaign');
         hideTimer();
@@ -32,7 +32,7 @@ window.onload = () => {
 
     document.getElementById('btn-resume').addEventListener('click', () => {
         game.state = 'PLAYING';
-        game.input.clearAll(); // Evitar teclas pegadas
+        game.input.clearAll();
         UI.showScreen('hud');
     });
 
@@ -53,6 +53,7 @@ window.onload = () => {
 
     document.getElementById('btn-upgrades').addEventListener('click', () => {
         UI.showScreen('upgrades-screen');
+        updateUpgradesUI();
     });
 
     document.getElementById('btn-settings').addEventListener('click', () => {
@@ -61,13 +62,15 @@ window.onload = () => {
 
     document.getElementById('btn-settings-back').addEventListener('click', () => {
         UI.showScreen('main-menu');
+        updateMainMenuUI();
     });
 
     document.getElementById('btn-upgrades-back').addEventListener('click', () => {
         UI.showScreen('main-menu');
+        updateMainMenuUI();
     });
 
-    // Alternancia de dificultad
+    // ── DIFICULTAD ───────────────────────────────────────────
     const diffBtn = document.getElementById('btn-toggle-difficulty');
     if (diffBtn) {
         diffBtn.addEventListener('click', (e) => {
@@ -85,7 +88,7 @@ window.onload = () => {
         });
     }
 
-    // Alternancia de estilo visual
+    // ── ESTILO VISUAL ────────────────────────────────────────
     document.getElementById('btn-toggle-visual').addEventListener('click', (e) => {
         if (CONFIG.VisualMode === 'NEON') {
             CONFIG.VisualMode = 'REALISTIC';
@@ -100,10 +103,10 @@ window.onload = () => {
             CONFIG.Colors.player = '#00ffff';
             CONFIG.Colors.asteroid = '#b0b8cc';
         }
-        Renderer.initialized = false; // Refrescar fondo
+        Renderer.initialized = false;
     });
 
-    // --- NIVEL COMPLETADO ---
+    // ── NIVEL COMPLETADO ─────────────────────────────────────
     document.getElementById('btn-next-level').addEventListener('click', () => {
         game.nextLevel();
     });
@@ -115,7 +118,7 @@ window.onload = () => {
         AudioController.playBGM('music_menu');
     });
 
-    // --- SELECCIÓN DE NIVEL ---
+    // ── SELECCIÓN DE NIVEL ───────────────────────────────────
     document.getElementById('btn-select-level').addEventListener('click', () => {
         UI.showScreen('level-select-screen');
         populateLevelSelect();
@@ -123,9 +126,13 @@ window.onload = () => {
 
     document.getElementById('btn-select-level-back').addEventListener('click', () => {
         UI.showScreen('main-menu');
+        updateMainMenuUI();
     });
 
-    // --- HELPERS ---
+    // ── CONTROLES TÁCTILES (MÓVIL) ───────────────────────────
+    initTouchControls();
+
+    // ── HELPERS ──────────────────────────────────────────────
     function showTimer() {
         const el = document.getElementById('survival-timer');
         if (el) el.classList.remove('hidden');
@@ -139,13 +146,57 @@ window.onload = () => {
     function updateMainMenuUI() {
         const maxLevel = parseInt(localStorage.getItem('maxLevel') || '1');
         const btnSelectLevel = document.getElementById('btn-select-level');
-        btnSelectLevel.style.display = maxLevel > 1 ? 'flex' : 'none';
-        
+        if (btnSelectLevel) btnSelectLevel.style.display = maxLevel > 1 ? 'flex' : 'none';
+
+        // Leer récord actualizado desde localStorage (nunca estático)
         const hs = parseInt(localStorage.getItem('highScore') || '0');
         const menuHsDisplay = document.getElementById('menu-high-score');
         if (menuHsDisplay) {
             menuHsDisplay.innerText = `Récord: ${hs.toLocaleString()}`;
         }
+    }
+
+    function updateUpgradesUI() {
+        const crystals = parseInt(localStorage.getItem('crystals') || '0');
+        const el = document.getElementById('meta-crystals');
+        if (el) el.innerText = crystals;
+
+        // Leer niveles comprados
+        const upgrades = JSON.parse(localStorage.getItem('upgrades') || '{}');
+        const costs = { health: 10, speed: 15, shield: 20 };
+
+        ['health', 'speed', 'shield'].forEach(key => {
+            const lvl = upgrades[key] || 0;
+            const lvlEl = document.getElementById(`lvl-${key}`);
+            const costEl = document.getElementById(`cost-${key}`);
+            const card   = document.getElementById(`upg-${key}`);
+            if (lvlEl) lvlEl.innerText = lvl;
+            const cost = costs[key] + lvl * costs[key];
+            if (costEl) costEl.innerText = cost;
+
+            // Comprar al hacer clic en la tarjeta
+            if (card && !card._bound) {
+                card._bound = true;
+                card.addEventListener('click', () => {
+                    const curCrystals = parseInt(localStorage.getItem('crystals') || '0');
+                    const curUpgrades = JSON.parse(localStorage.getItem('upgrades') || '{}');
+                    const curLvl = curUpgrades[key] || 0;
+                    const curCost = costs[key] + curLvl * costs[key];
+                    if (curCrystals >= curCost) {
+                        curUpgrades[key] = curLvl + 1;
+                        localStorage.setItem('crystals', curCrystals - curCost);
+                        localStorage.setItem('upgrades', JSON.stringify(curUpgrades));
+                        // Aplicar bonificación si hay una partida activa
+                        if (game && game.player) applyUpgrades(game.player);
+                        updateUpgradesUI();
+                    } else {
+                        // Efecto de "sin fondos"
+                        card.classList.add('no-funds');
+                        setTimeout(() => card.classList.remove('no-funds'), 500);
+                    }
+                });
+            }
+        });
     }
 
     function populateLevelSelect() {
@@ -166,9 +217,53 @@ window.onload = () => {
         }
     }
 
-    // --- INICIO ---
+    // ── INICIO ───────────────────────────────────────────────
     UI.showScreen('main-menu');
     updateMainMenuUI();
+    // BGM se encola aquí; se reproducirá tras la primera interacción del usuario
     AudioController.playBGM('music_menu');
-    // Nota: el loop comienza solo cuando el jugador inicia una partida (game.start())
 };
+
+// ── Aplicar mejoras permanentes al jugador activo ───────────
+function applyUpgrades(player) {
+    const upgrades = JSON.parse(localStorage.getItem('upgrades') || '{}');
+    const healthLvl = upgrades['health'] || 0;
+    const speedLvl  = upgrades['speed']  || 0;
+    const shieldLvl = upgrades['shield'] || 0;
+
+    // Cada nivel de Health da +20 de vida máxima
+    player.health = Math.min(CONFIG.Player.maxHealth + healthLvl * 20, player.health + healthLvl * 20);
+
+    // Velocidad y escudo se aplican via CONFIG en tiempo de inicio (no retroactivo)
+    // Se guardan para próximas partidas
+}
+
+// ── Controles táctiles para móvil ─────────────────────────
+function initTouchControls() {
+    const overlay = document.getElementById('touch-controls');
+    if (!overlay) return;
+
+    // Botones direccionales
+    const bindTouch = (id, key, keyCode) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            if (game && game.input) game.input.keys.add(keyCode);
+        }, { passive: false });
+        el.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            if (game && game.input) game.input.keys.delete(keyCode);
+        }, { passive: false });
+        el.addEventListener('touchcancel', () => {
+            if (game && game.input) game.input.keys.delete(keyCode);
+        });
+    };
+
+    bindTouch('touch-up',    'up',    'ArrowUp');
+    bindTouch('touch-left',  'left',  'ArrowLeft');
+    bindTouch('touch-right', 'right', 'ArrowRight');
+    bindTouch('touch-down',  'down',  'ArrowDown');
+    bindTouch('touch-fire',  'fire',  'Space');
+    bindTouch('touch-pause', 'pause', 'KeyP');
+}

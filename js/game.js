@@ -313,10 +313,19 @@ class Game {
         }
         this._gKeyWasDown = gDown;
 
-        // Si el objetivo actual ya no es activo, limpiar referencia
+        // Auto-seleccionar objetivo cuando se activa el arma MISSILE por primera vez
+        if (this.player && this.player.currentWeaponKey === 'MISSILE' && this._lastWeaponKey !== 'MISSILE') {
+            // Se acaba de cambiar al misil: seleccionar el asteroide más cercano automáticamente
+            this._autoSelectMissileTarget();
+        }
+
+        // Si el objetivo actual ya no es activo, buscar el siguiente automáticamente
         if (this.missileTarget && !this.missileTarget.active) {
             this.missileTarget = null;
             this._missileTargetIndex = -1;
+            if (this.player && this.player.currentWeaponKey === 'MISSILE') {
+                this._autoSelectMissileTarget();
+            }
         }
 
         this.stats.timePlayed += dt;
@@ -422,14 +431,38 @@ class Game {
         const ammo = this.player.ammoLeft;
         if (wk !== this._lastWeaponKey || ammo !== this._lastAmmo) {
             UI.updateWeapon(this.player.weaponDef, ammo);
-            this._lastWeaponKey = wk;
             this._lastAmmo = ammo;
         }
 
-        // Limpiar missileTarget si el arma ya no es MISSILE
-        if (wk !== 'MISSILE') {
+        // Limpiar missileTarget solo cuando se abandona el arma MISSILE
+        if (wk !== 'MISSILE' && this._lastWeaponKey === 'MISSILE') {
             this.missileTarget = null;
             this._missileTargetIndex = -1;
+        }
+
+        // Siempre actualizar al final para que la comparación de "primer frame MISSILE" funcione
+        this._lastWeaponKey = wk;
+    }
+
+    // Selecciona automáticamente el asteroide más cercano al jugador
+    _autoSelectMissileTarget() {
+        const asteroids = this.asteroids.filter(a => a.active);
+        if (asteroids.length === 0 || !this.player) {
+            this.missileTarget = null;
+            this._missileTargetIndex = -1;
+            return;
+        }
+        const px = this.player.x, py = this.player.y;
+        let nearest = null, nearestDist = Infinity;
+        for (let i = 0; i < asteroids.length; i++) {
+            const a = asteroids[i];
+            const dx = a.x - px, dy = a.y - py;
+            const dist = dx * dx + dy * dy;
+            if (dist < nearestDist) { nearestDist = dist; nearest = a; }
+        }
+        if (nearest) {
+            this.missileTarget = nearest;
+            this._missileTargetIndex = asteroids.indexOf(nearest);
         }
     }
 
@@ -442,18 +475,15 @@ class Game {
             return;
         }
 
-        // Buscar el índice actual del target en el array filtrado
         let currentIdx = -1;
         if (this.missileTarget) {
             currentIdx = asteroids.indexOf(this.missileTarget);
         }
 
-        // Avanzar al siguiente
         const nextIdx = (currentIdx + 1) % asteroids.length;
         this.missileTarget = asteroids[nextIdx];
         this._missileTargetIndex = nextIdx;
 
-        // Mostrar notificación breve
         this.showPowerUpNotification('🎯 Objetivo bloqueado', '#ff8800');
     }
 
@@ -495,7 +525,14 @@ class Game {
                     this.stats.asteroidsDestroyed++;
                     const diff = CONFIG.getDifficulty();
                     this.score += Math.floor(100 * a.size * (this.mode === 'survival' ? 2 : 1) * this.comboMultiplier * diff.scoreMult);
-                    
+
+                    // Ganar cristales: 1 por asteroide grande, ocasionalmente en medianos
+                    if (a.size === 3 || (a.size === 2 && Math.random() < 0.25)) {
+                        const gained = a.size === 3 ? 1 : 1;
+                        const cur = parseInt(localStorage.getItem('crystals') || '0');
+                        localStorage.setItem('crystals', cur + gained);
+                    }
+
                     this.comboTimer = CONFIG.Combo.timerFrames;
                     if (this.comboMultiplier < CONFIG.Combo.maxLevel) {
                         this.comboMultiplier++;
