@@ -139,7 +139,13 @@ class Player extends Entity {
 
         // Aceleración
         const thrusting = input.isDown('ArrowUp') || input.isDown('KeyW');
-        const braking = input.isDown('ArrowDown') || input.isDown('KeyS');
+        let braking = input.isDown('ArrowDown') || input.isDown('KeyS');
+        
+        // Solo permitir retroceder/frenar cuando aparezca el jefe
+        const bossActive = game && game.enemies && game.enemies.length > 0;
+        if (braking && !bossActive) {
+            braking = false;
+        }
 
         if (thrusting) {
             this.vx += Math.cos(this.rotation) * effectiveAccel * dt;

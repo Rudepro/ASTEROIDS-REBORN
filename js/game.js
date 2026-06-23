@@ -171,6 +171,9 @@ class Game {
         
         this.powerUpNotification = null;
         this.powerUpNotificationTimer = 0;
+        this.bossSpawned = false;
+        this.bossAlertTimer = undefined;
+
         // Invalidar cache de UI
         this._lastScore = -1;
         this._lastHealth = -1;
@@ -401,8 +404,18 @@ class Game {
         } else {
             if (asteroids.length === 0) {
                 if (this.level % 3 === 0 && this.enemies.length === 0 && !this.bossSpawned) {
-                    this.spawnBoss();
-                    this.bossSpawned = true;
+                    if (this.bossAlertTimer === undefined) {
+                        this.bossAlertTimer = 5; // 5 segundos
+                        this.showPowerUpNotification('¡ALERTA DE JEFE!', '#ff0000');
+                        AudioController.playBGM('music_boss');
+                    }
+                    if (this.bossAlertTimer > 0) {
+                        this.bossAlertTimer -= (dt / 60);
+                    } else {
+                        this.spawnBoss();
+                        this.bossSpawned = true;
+                        this.bossAlertTimer = undefined;
+                    }
                 } else if (this.enemies.length === 0) {
                     this.state = 'LEVEL_COMPLETE';
                     AudioController.play('Level_Win');
@@ -577,6 +590,7 @@ class Game {
                             this.createExplosion(e.x, e.y, 100, e.color, true);
                             AudioController.play('Enemy_Died');
                             this.score += 5000;
+                            AudioController.playBGM('music_gameplay'); // Regresar a música normal
                         }
                         break;
                     }
@@ -722,6 +736,15 @@ class Game {
             if (this.damageFlashTimer > 0) {
                 ctx.fillStyle = `rgba(255, 0, 0, ${this.damageFlashTimer / 10})`;
                 ctx.fillRect(0, 0, W, H);
+            }
+
+            if (this.bossAlertTimer !== undefined && this.bossAlertTimer > 0) {
+                ctx.fillStyle = `rgba(255, 0, 0, ${0.15 + 0.15 * Math.sin(this.bossAlertTimer * 10)})`;
+                ctx.fillRect(0, 0, W, H);
+                ctx.fillStyle = '#ff0000';
+                ctx.font = 'bold 36px Orbitron';
+                ctx.textAlign = 'center';
+                ctx.fillText('¡PELIGRO: JEFE ACERCÁNDOSE!', W / 2, H / 4);
             }
 
             // Asegurar limpieza de estado del canvas al final del frame

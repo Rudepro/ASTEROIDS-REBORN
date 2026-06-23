@@ -16,11 +16,11 @@
 - Sistema de **Power-ups** con efectos temporales y permanentes
 - Sistema de **Cristales** como moneda meta-progresiva ganada en partidas
 - **Mejoras Permanentes** comprables entre partidas (Vida, Velocidad, Escudo)
-- HUD premium en estilo neon con barras animadas y minimapa
-- **Jefe** con IA de seguimiento y disparo en abanico (aparece cada 3 niveles)
+- HUD premium en estilo neon con barras animadas, minimapa y **iconos correctos de armas**
+- **Jefe** con IA de seguimiento y disparo en abanico (aparece cada 3 niveles tras una **alerta de 5 segundos**)
 - Combo multiplicador de puntaje (hasta ×4)
 - **Controles táctiles** para móvil (D-Pad + botones de acción)
-- Sistema de audio por `AudioContext` sin gaps entre sonidos simultáneos
+- Sistema de audio por `AudioContext` con **transiciones correctas entre música de juego, jefe y menú**
 - Arquitectura optimizada con **Object Pools** y **canvas offscreen**
 
 ---
@@ -34,7 +34,7 @@
 | `W` / `↑` | Acelerar |
 | `A` / `←` | Rotar izquierda |
 | `D` / `→` | Rotar derecha |
-| `S` / `↓` | Frenar |
+| `S` / `↓` | Frenar (Solo disponible durante batalla contra el Jefe) |
 | `SPACE` | Disparar |
 | `G` | Ciclar objetivo del Misil 🚀 |
 | `P` / `ESC` | Pausar / Reanudar |
@@ -45,7 +45,7 @@
 |---|---|
 | D-Pad ▲ | Acelerar |
 | D-Pad ◀ / ▶ | Rotar |
-| D-Pad ▼ | Frenar |
+| D-Pad ▼ | Frenar (Solo disponible durante batalla contra el Jefe) |
 | 🔥 | Disparar |
 | ⏸ | Pausa |
 
@@ -147,7 +147,7 @@ Los cristales persisten entre partidas en `localStorage`. Se gastan en la pantal
 ### 🎯 Campaña
 - Niveles progresivos (1 → N), cada nivel con `4 + nivel` asteroides
 - Los asteroides grandes se fragmentan en 2 medianos, los medianos en 2 pequeños
-- Cada 3 niveles aparece un **Jefe** con patrón bullet-hell
+- Cada 3 niveles aparece un **Jefe** con patrón bullet-hell (precedido por una alerta visual de 5 segundos)
 - Progreso guardado para selección de nivel posterior
 
 ### ☠ Supervivencia
