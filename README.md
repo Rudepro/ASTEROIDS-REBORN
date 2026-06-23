@@ -203,27 +203,31 @@ requestAnimationFrame(loop)
 
 ## 🔊 Sistema de Audio
 
-Archivos en `public/sounds/`:
+El juego cuenta con un sistema de música dinámica y efectos de sonido cargados vía `AudioContext` para evitar retrasos y cortes. Se garantiza que la música transicione suavemente y nunca se superponga.
 
-| ID | Archivo | Evento |
-|---|---|---|
-| `Boss_Explosion` | Boss_Explosion.mp3 | Explosión del jefe |
-| `Boss_Hit` | Boss_Hit.mp3 | El jefe recibe daño |
-| `Boss` | Boss.mp3 | El jefe aparece |
-| `Game_Win` | Game_Win.mp3 | El jugador gana |
-| `music_boss` | music_boss.mp3 | Música del jefe |
-| `music_gameplay` | music_gameplay.mp3 | Música del juego |
-| `music_menu` | music_menu.mp3 | Música del menú |
-| `Player_Win_Life` | Player_Win_Life.mp3 | El jugador gana una vida |
-| `Powerup_Health` | Powerup_Health.mp3 | El jugador obtiene vida |
-| `Powerup_Weapon` | Powerup_Weapon.mp3 | El jugador obtiene un arma |
-| `Powerup_Speed` | Powerup_Speed.mp3 | El jugador obtiene velocidad |
-| `Shield_Activate` | Shield_Activate.mp3 | El jugador activa el escudo |
-| `Shot` | Shot.mp3 | Disparo del jugador |
-| `Enemy_Died` | Enemy_Died.mp3 | Destrucción de asteroide |
-| `Player_Lost_Life` | Player_Lost_Life.mp3 | Jugador recibe daño |
-| `Game_Over` | Game_Over.mp3 | Fin de partida |
-| `Level_Win` | Level_Win.mp3 | Nivel completado |
+### Música de Fondo (BGM)
+- **Menú Principal (`music_menu.mp3`)**: Se reproduce en la pantalla de inicio, tienda de mejoras y menús estáticos.
+- **Juego (`music_gameplay.mp3`)**: Banda sonora principal durante el desarrollo normal de la campaña, la supervivencia y tras derrotar a un jefe.
+- **Batalla contra Jefe (`music_boss.mp3`)**: Banda sonora épica que interrumpe la música normal durante la **alerta de 5 segundos** y perdura a lo largo de toda la batalla contra el jefe.
+
+### Efectos de Sonido (SFX)
+Archivos disponibles en `public/sounds/`:
+
+| Archivo | Evento |
+|---|---|
+| `Boss_Explosion.mp3` | Explosión final que se produce al derrotar al jefe |
+| `Boss_Hit.mp3` | Impacto de proyectiles en la armadura del jefe |
+| `Enemy_Died.mp3` | Destrucción estándar de asteroides y fragmentos |
+| `Game_Over.mp3` | Destrucción de la nave del jugador (Fin de partida) |
+| `Game_Win.mp3` | El jugador completa el juego en su totalidad |
+| `Level_Win.mp3` | Superación exitosa de un nivel |
+| `Player_Lost_Life.mp3` | El jugador recibe daño por colisiones o balas |
+| `Player_Win_Life.mp3` | Efecto fallback para ciertas mejoras sin sonido dedicado |
+| `Powerup_Health.mp3` | El jugador recoge el ítem de vida |
+| `Powerup_Speed.mp3` | El jugador recoge el incremento de velocidad |
+| `Powerup_Weapon.mp3` | El jugador recoge y equipa una nueva arma |
+| `Shield_Activate.mp3` | El jugador recoge y activa el escudo de energía |
+| `Shot.mp3` | Efecto base del disparo de armas |
 
 ---
 

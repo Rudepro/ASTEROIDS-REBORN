@@ -152,10 +152,10 @@ class Player extends Entity {
             this.vy += Math.sin(this.rotation) * effectiveAccel * dt;
             this.thrusterLevel = Math.min(1, this.thrusterLevel + 0.15);
         } else if (braking) {
-            // Freno activo: aproximación lineal sin Math.pow
-            const brakeF = 1 - 0.15 * dt;
-            this.vx *= brakeF;
-            this.vy *= brakeF;
+            // Retroceder físicamente (la mitad de la aceleración normal)
+            const backAccel = effectiveAccel * 0.5;
+            this.vx -= Math.cos(this.rotation) * backAccel * dt;
+            this.vy -= Math.sin(this.rotation) * backAccel * dt;
             this.thrusterLevel = 0.3;
         } else {
             this.thrusterLevel = Math.max(0, this.thrusterLevel - 0.08);

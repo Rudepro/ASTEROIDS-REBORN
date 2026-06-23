@@ -191,12 +191,16 @@ const AudioController = {
         }
 
         this._stopBGMImmediate();
+        this.bgmId = id; // Registrar intención para evitar que otros sonidos se monten
 
         const buf = this._buffers[id];
         if (!buf) {
             // Puede que todavía esté cargando; reintentar en 500 ms
             setTimeout(() => {
-                if (this.bgmId !== id) this.playBGM(id);
+                if (this.bgmId === id) {
+                    this.bgmId = null; // Limpiar para que la validación inicial pase
+                    this.playBGM(id);
+                }
             }, 500);
             return;
         }
@@ -223,8 +227,12 @@ const AudioController = {
         this._gainBGM.gain.cancelScheduledValues(this._ctx.currentTime);
         this._gainBGM.gain.setValueAtTime(this._gainBGM.gain.value, this._ctx.currentTime);
         this._gainBGM.gain.linearRampToValueAtTime(0, this._ctx.currentTime + 0.6);
+        
+        this._fadingSource = src;
+        
         setTimeout(() => {
             try { src.stop(); } catch (_) {}
+            if (this._fadingSource === src) this._fadingSource = null;
         }, 700);
         this.bgmSource = null;
         this.bgmId = null;
@@ -234,6 +242,10 @@ const AudioController = {
         if (this.bgmSource) {
             try { this.bgmSource.stop(); } catch (_) {}
             this.bgmSource = null;
+        }
+        if (this._fadingSource) {
+            try { this._fadingSource.stop(); } catch (_) {}
+            this._fadingSource = null;
         }
         this.bgmId = null;
         if (this._gainBGM) {

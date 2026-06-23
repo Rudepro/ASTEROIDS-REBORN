@@ -584,11 +584,12 @@ class Game {
                         
                         // Pequeña explosión de impacto
                         this.createExplosion(p.x, p.y, 5, p.weaponDef.color, false);
+                        AudioController.play('Boss_Hit');
                         
                         if (e.health <= 0) {
                             e.active = false;
                             this.createExplosion(e.x, e.y, 100, e.color, true);
-                            AudioController.play('Enemy_Died');
+                            AudioController.play('Boss_Explosion');
                             this.score += 5000;
                             AudioController.playBGM('music_gameplay'); // Regresar a música normal
                         }
