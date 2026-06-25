@@ -231,13 +231,16 @@ Archivos disponibles en `public/sounds/`:
 
 ---
 
-## 📱 Soporte Móvil
+## 📱 Soporte Móvil y Tablets
 
-El juego incluye controles táctiles para dispositivos móviles:
-- **D-Pad** en la esquina inferior izquierda (▲ acelerar, ◀▶ rotar, ▼ frenar)
-- **Botón de fuego 🔥** y **pausa ⏸** en la esquina inferior derecha
-- HUD compacto adaptado a pantallas pequeñas con `clamp()` y media queries
-- Los controles táctiles se ocultan automáticamente en tablets/PC
+El juego incluye controles táctiles totalmente funcionales para dispositivos móviles y tablets:
+- **D-Pad** en la esquina inferior izquierda (▲ acelerar, ◀▶ rotar, ▼ frenar).
+- **Botones de acción** en la esquina inferior derecha:
+  - **Fuego 🔥**: Disparar el arma equipada.
+  - **Pausa ⏸**: Pausar o reanudar el juego.
+  - **Objetivo 🎯**: Ciclar objetivo manualmente (solo para el arma **Misil**).
+- El HUD, minimapa e indicadores de armas se adaptan dinámicamente y evitan solaparse con los controles en pantallas táctiles o pequeñas.
+- Los controles se activan automáticamente mediante detección de pantalla táctil (`pointer: coarse`) y se adaptan a resoluciones de hasta 1024px. En PC, los controles táctiles se ocultan automáticamente.
 
 ---
 

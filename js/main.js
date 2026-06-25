@@ -266,4 +266,5 @@ function initTouchControls() {
     bindTouch('touch-down',  'down',  'ArrowDown');
     bindTouch('touch-fire',  'fire',  'Space');
     bindTouch('touch-pause', 'pause', 'KeyP');
+    bindTouch('touch-target', 'target', 'KeyG');
 }

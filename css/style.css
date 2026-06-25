@@ -945,11 +945,17 @@ h2 {
     box-shadow: 0 0 10px rgba(0,255,255,0.2);
 }
 
+.target-btn {
+    background: rgba(255, 136, 0, 0.18);
+    border-color: #ff8800;
+    box-shadow: 0 0 12px rgba(255, 136, 0, 0.3);
+}
+
 /* ======================================================
-   RESPONSIVE — MÓVIL
+   RESPONSIVE — MÓVIL Y TABLETS
    ====================================================== */
-@media (max-width: 600px) {
-    /* Mostrar controles táctiles solo en móvil */
+@media (pointer: coarse), (max-width: 1024px) {
+    /* Mostrar controles táctiles en dispositivos touch o pantallas hasta 1024px */
     #touch-controls { display: flex; }
 
     /* Menú principal */
@@ -1076,8 +1082,8 @@ h2 {
     .score-value { font-size: 1.1rem; }
 }
 
-/* Tablet landscape: ocultar touch controls */
-@media (min-width: 601px) {
+/* Desktop: ocultar touch controls */
+@media (pointer: fine) and (min-width: 1025px) {
     #touch-controls { display: none !important; }
 }
 
